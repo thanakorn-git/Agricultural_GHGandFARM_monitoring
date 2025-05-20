@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+body{font-family:'Inter',sans-serif;font-size:14px;color:#444}
+
+.main-sidebar{background:#30255d}
+.main-sidebar .active>a{background:#433a78;border-radius:8px;font-weight:600}
+
+.box{border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.05)}
+.btn-outline-secondary,.btn-outline-danger{border-radius:6px}
+
+
+/* ========== KPI SMALL-BOX TWEAKS ========== */
+.small-box           { min-height:130px; height:100%; padding-top:10px; }
+.small-box .icon     { font-size:38px; top:10px; right:8px; opacity:.12; }
+@media (max-width: 575.98px){            /* จอเล็กลง ไอคอนย่อ-จางเพิ่ม */
+  .small-box .icon   { font-size:32px; opacity:.08; }
+}
