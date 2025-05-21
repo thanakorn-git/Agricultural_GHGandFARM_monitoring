@@ -1,100 +1,191 @@
-# app.R ── FINAL RESPONSIVE VERSION ────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# mod_tab1_controlcenter.R — CLEAN & RESPONSIVE LAYOUT (v5)
+# - Dark mode donut charts: transparent + theme-safe colors
+# - Pie backgrounds match bs4Dash themes
+# - Eliminated harsh white contrast in dark theme
+# ─────────────────────────────────────────────────────────────
 
-# Load core packages ----------------------------------------------------------
-library(shiny)
 library(bs4Dash)
-library(shinyWidgets)
 library(leaflet)
+library(plotly)
 library(sf)
 library(dplyr)
-library(plotly)
-library(shinycssloaders)
-library(shinyjs)
-library(shinyalert)
+library(shinyWidgets)
 
-# -----------------------------------------------------------------------------
-# Source modules & helpers ----------------------------------------------------
-source("mod_tab1_controlcenter.R")
-source("mod_tab2_calculator_R.R", local = TRUE)
-source("mod_tab3_about_info_R.R", local = TRUE)
-source("helpers_calc_ghg_vm0042_R.R", local = TRUE)
-source("helpers_colors_theme_R.R", local = TRUE)
-
-# -----------------------------------------------------------------------------
-# UserInterface ----------------------------------------------------------------
-# -----------------------------------------------------------------------------
-ui <- dashboardPage(
-  title = "GHG Control Center",
-  
-  # HEADER ---------------------------------------------------------------------
-  header = dashboardHeader(),
-  
-  # SIDEBAR --------------------------------------------------------------------
-  sidebar = dashboardSidebar(
-    skin = "dark",
-    collapsed = FALSE,
-    minified = TRUE,
+mod_tab1_control_UI <- function(id) {
+  ns <- NS(id)
+  fluidPage(
+    tags$head(tags$style(HTML('
+      @keyframes pulseIcon {0%{transform:scale(1);}50%{transform:scale(1.15);}100%{transform:scale(1);} }
+      .pulse-icon{animation:pulseIcon 2.8s ease-in-out infinite;}
+      @keyframes wiggle {0%,100%{transform:rotate(0deg);}50%{transform:rotate(8deg);}}
+      .weather-icon{animation:wiggle 3s ease-in-out infinite; font-size:24px;}
+      .weather-widget{display:inline-flex; align-items:center; gap:6px; color:#f1c40f; font-weight:600;}
+    '))),
+    useShinyjs(),
     
-    # ✅ Logo above menu
-    tags$div(
-      style = "text-align:center; padding:10px;",
-      tags$img(
-        src = "https://swjiwyhenhllhkositzx.supabase.co/storage/v1/object/public/product/test/faa_logo.png",
-        id = "sidebar-logo",
-        style = "width:70%; max-width:120px; transition:all 0.3s;"
+    fluidRow(
+      column(
+        width = 8,
+        box(
+          id    = ns("live_box"),
+          title = tagList(icon("leaf"), "Agricultural Monitoring Dashboard"),
+          status = "success", width = 12, solidHeader = TRUE,
+          
+          fluidRow(
+            column(6, switchInput(ns("live_toggle"), label = "Live Update", size = "mini", onStatus = "success")),
+            column(6, align = "right", uiOutput(ns("weather_widget")))
+          ),
+          
+          plotlyOutput(ns("live_chart"), height = "220px"),
+          br(),
+          fluidRow(
+            column(4, plotlyOutput(ns("live_pie1"), height = "140px")),
+            column(4, plotlyOutput(ns("live_pie2"), height = "140px")),
+            column(4, plotlyOutput(ns("live_pie3"), height = "140px"))
+          )
+        ),
+        
+        box(
+          title = "Agricultural Metrics", width = 12, solidHeader = TRUE,
+          progressBar(id = ns("p_irrigation"), value = 65, title = tagList(icon("tint"), "Irrigation Level"), status = "success"),
+          progressBar(id = ns("p_crop"),       value = 45, title = tagList(icon("seedling"), "Crop Health Index"), status = "info"),
+          progressBar(id = ns("p_soil"),       value = 82, title = tagList(icon("water"), "Soil Moisture"), status = "primary"),
+          progressBar(id = ns("p_yield"),      value = 33, title = tagList(icon("chart-line"), "Projected Yield"), status = "danger"),
+          br(),
+          actionButton(ns("pdf_btn"), "Download Report", icon = icon("file-download"), class = "btn-outline-success"),
+          actionButton(ns("bug_btn"), "Flag Issue", icon = icon("exclamation-triangle"), class = "btn-outline-warning")
+        )
+      ),
+      
+      column(
+        width = 4,
+        box(title = "Mini Global View", width = 12, solidHeader = TRUE,
+            leafletOutput(ns("mini_map"), height = "220px", width = "100%")),
+        box(title = "Quick Stats", width = 12, solidHeader = TRUE,
+            valueBoxOutput(ns("vb_server"), width = 12),
+            valueBoxOutput(ns("vb_disk"),   width = 12),
+            valueBoxOutput(ns("vb_temp"),   width = 12))
       )
     ),
     
-    sidebarMenu(
-      menuItem("World Map Overview", tabName = "map_tab",  icon = icon("globe", verify_fa = FALSE)),
-      menuItem("GHG Calculator",      tabName = "calc_tab", icon = icon("calculator", verify_fa = FALSE)),
-      menuItem("About & Methodology", tabName = "info_tab", icon = icon("circle-info", verify_fa = FALSE))
-    )
-  ),
-  
-  # BODY -----------------------------------------------------------------------
-  body = dashboardBody(
-    useShinyjs(),
-    useShinyalert(force = TRUE),
+    box(title = "KPI Summary", width = 12, solidHeader = TRUE,
+        fluidRow(
+          column(3, valueBoxOutput(ns("vbox_bugs"))),
+          column(3, valueBoxOutput(ns("vbox_comments"))),
+          column(3, valueBoxOutput(ns("vbox_launches"))),
+          column(3, valueBoxOutput(ns("vbox_servers")))
+        )),
     
-    # Custom CSS
-    tags$head(
-      tags$link(rel = "stylesheet", type = "text/css", href = "smartadmin.css"),
-      tags$style(HTML("
-        /* Responsive logo resizing for collapsed sidebar */
-        .sidebar-mini.sidebar-collapse #sidebar-logo {
-          width: 30px !important;
-          max-width: 30px !important;
-          transition: all 0.3s ease-in-out;
-        }
-      "))
-    ),
-    
-    tabItems(
-      tabItem(tabName = "map_tab",  mod_tab1_control_UI("cc")),
-      tabItem(tabName = "calc_tab", mod_tab2_calculator_UI("calc")),
-      tabItem(tabName = "info_tab", mod_tab3_about_info_UI("info"))
-    )
-  ),
-  
-  # CONTROLBAR & FOOTER -------------------------------------------------------
-  controlbar = dashboardControlbar(disable = TRUE),
-  footer     = dashboardFooter(
-    left  = "© 2025 Fairagora Asia",
-    right = "Powered by VM0042"
+    box(title = "System Metrics", width = 12, solidHeader = TRUE,
+        fluidRow(
+          column(4, valueBox("85%", "Disk Utilisation", icon = icon("hard-drive"), color = "orange")),
+          column(8, box(title = "Server Temperature Heatmap", width = 12, solidHeader = TRUE,
+                        plotlyOutput(ns("heatmap"), height = "260px"),
+                        footer = tagList(icon("fire"), " refreshed every 5 min")))
+        ))
   )
-)
-
-# -----------------------------------------------------------------------------
-# Serverlogic ------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-server <- function(input, output, session) {
-  mod_tab1_control_Server("cc")
-  mod_tab2_calculator_Server("calc")
-  mod_tab3_about_info_Server("info")
 }
 
-# -----------------------------------------------------------------------------
-# Run the app ------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-shinyApp(ui = ui, server = server)
+
+mod_tab1_control_Server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+    ns <- session$ns
+    
+    liveData <- reactiveVal(cumsum(rnorm(50)))
+    
+    observe({
+      invalidateLater(5000, session)
+      if (isTRUE(input$live_toggle)) {
+        newY <- tail(liveData(), 1) + rnorm(1)
+        liveData(c(liveData(), newY)[-1])
+      }
+    })
+    
+    output$live_chart <- renderPlotly({
+      y <- liveData(); x <- seq_along(y)
+      plot_ly() |>
+        add_trace(x = x, y = y, type = "scatter", mode = "lines", fill = "tozeroy",
+                  line = list(width = 2)) |>
+        add_markers(x = tail(x, 1), y = tail(y, 1), marker = list(size = 8)) |>
+        layout(margin = list(l = 40, r = 10, t = 10, b = 40), showlegend = FALSE,
+               xaxis = list(title = "Time Step", showgrid = FALSE),
+               yaxis = list(title = "Signal",   zeroline = TRUE))
+    })
+    
+    # Weather widget with animated icon
+    # --- Weather widget logic ---------------------------------------------
+    weatherConditions <- data.frame(
+      icon  = c("sun", "cloud", "cloud-showers-heavy", "wind"),
+      label = c("Sunny", "Cloudy", "Rainy", "Windy"),
+      color = c("#f1c40f", "#bdc3c7", "#3498db", "#f39c12"),
+      stringsAsFactors = FALSE
+    )
+    
+    weatherInfo <- reactiveVal(weatherConditions[1, ])  # init with first
+    
+    observe({
+      invalidateLater(10000, session)
+      weatherInfo(weatherConditions[sample(nrow(weatherConditions), 1), ])
+    })
+    
+    output$weather_widget <- renderUI({
+      info <- weatherInfo()
+      span(
+        class = "weather-widget",
+        icon(info$icon, class = "weather-icon animate__animated animate__fadeIn", style = paste0("color:", info$color)),
+        paste0(info$label, " ", sample(24:34, 1), "°C")
+      )
+    })
+    
+    # Donut-style pies with transparent backgrounds (dark mode safe)
+    renderPieChart <- function(value, label, color) {
+      plot_ly(
+        values = c(value, 100 - value),
+        labels = c("", ""),
+        marker = list(colors = c(color, "rgba(255,255,255,0.05)")),
+        hole = 0.65,
+        type = "pie",
+        direction = "clockwise",
+        sort = FALSE,
+        showlegend = FALSE
+      ) |>
+        layout(
+          annotations = list(
+            list(text = paste0(value, "%"), showarrow = FALSE, font = list(size = 18, color = "#ddd"))
+          ),
+          paper_bgcolor = "rgba(0,0,0,0)",
+          plot_bgcolor  = "rgba(0,0,0,0)",
+          margin = list(l = 10, r = 10, t = 30, b = 10),
+          title = list(text = label, font = list(size = 14, color = "#ccc"), x = 0.5)
+        )
+    }
+    
+    output$live_pie1 <- renderPlotly({ renderPieChart(sample(50:100, 1), "Humidity %", "#1ab921") })
+    output$live_pie2 <- renderPlotly({ renderPieChart(sample(40:90, 1), "Nitrogen Index", "#11c456") })
+    output$live_pie3 <- renderPlotly({ renderPieChart(sample(30:80, 1), "Crop Index", "#53c281") })
+    
+    output$vbox_bugs     <- renderValueBox(valueBox(21,  "Open Bugs",    icon = icon("bug"),         color = "danger"))
+    output$vbox_comments <- renderValueBox(valueBox(143, "Comments",     icon = icon("comment"),     color = "info"))
+    output$vbox_launches <- renderValueBox(valueBox(7,   "New Launches", icon = icon("paper-plane"), color = "success"))
+    output$vbox_servers  <- renderValueBox(valueBox(4,   "Servers Online",icon = icon("server"),      color = "primary"))
+    
+    output$vb_server <- renderValueBox(valueBox("75%", "SERVER LOAD", icon = icon("server"),     color = "purple"))
+    output$vb_disk   <- renderValueBox(valueBox("79%", "DISK SPACE",  icon = icon("hard-drive"), color = "teal"))
+    output$vb_temp   <- renderValueBox(valueBox("36°", "TEMP.",       icon = icon("fire"),       color = "danger"))
+    
+    output$heatmap <- renderPlotly({
+      plot_ly(z = matrix(rnorm(25), 5, 5), type = "heatmap")
+    })
+    
+    world <- sf::st_read("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json", quiet = TRUE) |>
+      sf::st_transform(4326)
+    
+    output$mini_map <- renderLeaflet({
+      leaflet(world, options = leafletOptions(minZoom = 1)) |>
+        addProviderTiles(providers$CartoDB.DarkMatterNoLabels) |>
+        addPolygons(fillColor = "purple", fillOpacity = .4, color = "white", weight = .4) |>
+        setView(0, 20, 2)
+    })
+  })
+}
